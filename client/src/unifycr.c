@@ -206,6 +206,155 @@ pthread_mutex_t unifycr_stack_mutex = PTHREAD_MUTEX_INITIALIZER;
 char external_data_dir[1024] = {0}; 
 char external_meta_dir[1024] = {0};
 
+/* converts string like 10mb to unsigned long long integer value of 10*1024*1024 */
+static int unifycr_abtoull(char* str, unsigned long long* val)
+{
+    /* check that we have a string */
+    if (str == NULL) {
+        debug("unifycr_abtoull: Can't convert NULL string to bytes @ %s:%d",
+            __FILE__, __LINE__
+        );
+        return UNIFYCR_FAILURE;
+    }
+
+    /* check that we have a value to write to */
+    if (val == NULL) {
+        debug("unifycr_abtoull: NULL address to store value @ %s:%d",
+            __FILE__, __LINE__
+        );
+        return UNIFYCR_FAILURE;
+    }
+
+    /* pull the floating point portion of our byte string off */
+    errno = 0;
+    char* next = NULL;
+    double num = strtod(str, &next);
+    if (errno != 0) {
+        debug("unifycr_abtoull: Invalid double: %s @ %s:%d",
+            str, __FILE__, __LINE__
+        );
+        return UNIFYCR_FAILURE;
+    }
+
+    /* now extract any units, e.g. KB MB GB, etc */
+    unsigned long long units = 1;
+    if (*next != '\0') {
+        switch(*next) {
+        case 'k':
+        case 'K':
+            units = 1024;
+            break;
+        case 'm':
+        case 'M':
+            units = 1024*1024;
+            break;
+        case 'g':
+        case 'G':
+            units = 1024*1024*1024;
+            break;
+        default:
+            debug("unifycr_abtoull: Unexpected byte string %s @ %s:%d",
+                str, __FILE__, __LINE__
+            );
+            return UNIFYCR_FAILURE;
+        }
+
+        next++;
+
+        /* handle optional b or B character, e.g. in 10KB */
+        if (*next == 'b' || *next == 'B') {
+            next++;
+        }
+
+        /* check that we've hit the end of the string */
+        if (*next != 0) {
+            debug("unifycr_abtoull: Unexpected byte string: %s @ %s:%d",
+                str, __FILE__, __LINE__
+            );
+            return UNIFYCR_FAILURE;
+        }
+    }
+
+    /* check that we got a positive value */
+    if (num < 0) {
+        debug("unifycr_abtoull: Byte string must be positive: %s @ %s:%d",
+            str, __FILE__, __LINE__
+        );
+        return UNIFYCR_FAILURE;
+    }
+
+    /* multiply by our units and set out return value */
+    *val = (unsigned long long) (num * (double) units);
+
+    return UNIFYCR_SUCCESS;
+}
+
+/* if named parameter is set, return pointer in value,
+ * returns 1 if set, 0 otherwise */
+static int unifycr_param_get(const char* name, char** pvalue)
+{
+    char* value = getenv(name);
+    if (value != NULL) {
+        *pvalue = value;
+        return 1;
+    }
+    return 0;
+}
+
+/* if named parameter is set, return pointer in value and return 1,
+ * otherwise, return pointer to defval and return 0 */
+static int unifycr_param_get_str(const char* name, const char* defval, char** pvalue)
+{
+    if (unifycr_param_get(name, pvalue)) {
+        return 1;
+    } else {
+        *pvalue = (char*) defval;
+        return 0;
+    }
+}
+
+/* if named parameter is set, return integer value in pvalue and return 1,
+ * otherwise, return defval in pvale and return 0 */
+static int unifycr_param_get_int(const char* name, int defval, int* pvalue)
+{
+    char* value;
+    if (unifycr_param_get(name, &value)) {
+        *pvalue = atoi(value);
+        return 1;
+    } else {
+        *pvalue = defval;
+        return 0;
+    }
+}
+
+/* if named parameter is set, return integer value in pvalue and return 1,
+ * otherwise, return defval in pvale and return 0 */
+static int unifycr_param_get_long(const char* name, long defval, long* pvalue)
+{
+    char* value;
+    if (unifycr_param_get(name, &value)) {
+        *pvalue = atol(value);
+        return 1;
+    } else {
+        *pvalue = defval;
+        return 0;
+    }
+}
+
+/* if named parameter is set, return integer value in pvalue and return 1,
+ * otherwise, return defval in pvale and return 0 */
+static int unifycr_param_get_abtoull(const char* name, unsigned long long defval, unsigned long long* pvalue)
+{
+    char* value;
+    if (unifycr_param_get(name, &value)) {
+        unifycr_abtoull(value, pvalue);
+        return 1;
+    } else {
+        *pvalue = defval;
+        return 0;
+    }
+}
+
 /* single function to route all unsupported wrapper calls through */
 int unifycr_vunsupported(
   const char* fn_name,
@@ -1589,89 +1738,6 @@ static void* unifycr_superblock_bgq(size_t size, const char* name)
 }
 #endif /* MACHINE_BGQ */
 
-/* converts string like 10mb to unsigned long long integer value of 10*1024*1024 */
-static int unifycr_abtoull(char* str, unsigned long long* val)
-{
-    /* check that we have a string */
-    if (str == NULL) {
-        debug("scr_abtoull: Can't convert NULL string to bytes @ %s:%d",
-            __FILE__, __LINE__
-        );
-        return UNIFYCR_FAILURE;
-    }
-
-    /* check that we have a value to write to */
-    if (val == NULL) {
-        debug("scr_abtoull: NULL address to store value @ %s:%d",
-            __FILE__, __LINE__
-        );
-        return UNIFYCR_FAILURE;
-    }
-
-    /* pull the floating point portion of our byte string off */
-    errno = 0;
-    char* next = NULL;
-    double num = strtod(str, &next);
-    if (errno != 0) {
-        debug("scr_abtoull: Invalid double: %s @ %s:%d",
-            str, __FILE__, __LINE__
-        );
-        return UNIFYCR_FAILURE;
-    }
-
-    /* now extract any units, e.g. KB MB GB, etc */
-    unsigned long long units = 1;
-    if (*next != '\0') {
-        switch(*next) {
-        case 'k':
-        case 'K':
-            units = 1024;
-            break;
-        case 'm':
-        case 'M':
-            units = 1024*1024;
-            break;
-        case 'g':
-        case 'G':
-            units = 1024*1024*1024;
-            break;
-        default:
-            debug("scr_abtoull: Unexpected byte string %s @ %s:%d",
-                str, __FILE__, __LINE__
-            );
-            return UNIFYCR_FAILURE;
-        }
-
-        next++;
-
-        /* handle optional b or B character, e.g. in 10KB */
-        if (*next == 'b' || *next == 'B') {
-            next++;
-        }
-
-        /* check that we've hit the end of the string */
-        if (*next != 0) {
-            debug("scr_abtoull: Unexpected byte string: %s @ %s:%d",
-                str, __FILE__, __LINE__
-            );
-            return UNIFYCR_FAILURE;
-        }
-    }
-
-    /* check that we got a positive value */
-    if (num < 0) {
-        debug("scr_abtoull: Byte string must be positive: %s @ %s:%d",
-            str, __FILE__, __LINE__
-        );
-        return UNIFYCR_FAILURE;
-    }
-
-    /* multiply by our units and set out return value */
-    *val = (unsigned long long) (num * (double) units);
-
-    return UNIFYCR_SUCCESS;
-}
-
 static int unifycr_init(int rank)
 {
     if (! unifycr_initialized) {
@@ -1716,41 +1782,18 @@ static int unifycr_init(int rank)
         unifycr_min_long = LONG_MIN;
 
         /* will we use spillover to store the files? */
-        unifycr_use_spillover = 0;
-
-        env = getenv("UNIFYCR_USE_SPILLOVER");
-        if (env) {
-            int val = atoi(env);
-            if (val != 0) {
-                unifycr_use_spillover = 1;
-            }
-        }
-
+        unifycr_param_get_int("UNIFYCR_USE_SPILLOVER", 0, &unifycr_use_spillover);
         debug("are we using spillover? %d\n", unifycr_use_spillover);
 
         /* determine max number of files to store in file system */
-        unifycr_max_files = UNIFYCR_MAX_FILES;
-        env = getenv("UNIFYCR_MAX_FILES");
-        if (env) {
-            int val = atoi(env);
-            unifycr_max_files = val;
-        }
+        unifycr_param_get_int("UNIFYCR_MAX_FILES", UNIFYCR_MAX_FILES, &unifycr_max_files);
 
         /* determine number of bits for chunk size */
-        unifycr_chunk_bits = UNIFYCR_CHUNK_BITS;
-        env = getenv("UNIFYCR_CHUNK_BITS");
-        if (env) {
-            int val = atoi(env);
-            unifycr_chunk_bits = val;
-        }
+        unifycr_param_get_int("UNIFYCR_CHUNK_BITS", UNIFYCR_CHUNK_BITS, &unifycr_chunk_bits);
 
         /* determine maximum number of bytes of memory for chunk storage */
-        unifycr_chunk_mem = UNIFYCR_CHUNK_MEM;
-        env = getenv("UNIFYCR_CHUNK_MEM");
-        if (env) {
-            unifycr_abtoull(env, &bytes);
-            unifycr_chunk_mem = (size_t) bytes;
-        }
+        unifycr_param_get_abtoull("UNIFYCR_CHUNK_MEM", UNIFYCR_CHUNK_MEM, &bytes);
+        unifycr_chunk_mem = (size_t) bytes;
 
         /* set chunk size, set chunk offset mask, and set total number
          * of chunks */
@@ -1759,32 +1802,22 @@ static int unifycr_init(int rank)
         unifycr_max_chunks = unifycr_chunk_mem >> unifycr_chunk_bits;
 
         /* determine maximum number of bytes of spillover for chunk storage */
-        unifycr_spillover_size = UNIFYCR_SPILLOVER_SIZE;
-        env = getenv("UNIFYCR_SPILLOVER_SIZE");
-        if (env) {
-            unifycr_abtoull(env, &bytes);
-            unifycr_spillover_size = (size_t) bytes;
-        }
+        unifycr_param_get_abtoull("UNIFYCR_SPILLOVER_SIZE", UNIFYCR_SPILLOVER_SIZE, &bytes);
+        unifycr_spillover_size = (size_t) bytes;
 
         /* set number of chunks in spillover device */
         unifycr_spillover_max_chunks = unifycr_spillover_size >> unifycr_chunk_bits;
 
         if (fs_type == UNIFYCR_LOG) {
-            unifycr_index_buf_size = UNIFYCR_INDEX_BUF_SIZE;
-            env = getenv("UNIFYCR_INDEX_BUF_SIZE");
-            if (env) {
-            	unifycr_abtoull(env, &bytes);
-            	unifycr_index_buf_size = (size_t) bytes;
-            }
+            unifycr_param_get_abtoull("UNIFYCR_INDEX_BUF_SIZE", UNIFYCR_INDEX_BUF_SIZE, &bytes);
+            unifycr_index_buf_size = (size_t) bytes;
+
             unifycr_max_index_entries =\
             		unifycr_index_buf_size/sizeof(unifycr_index_t);
 
-            unifycr_fattr_buf_size = UNIFYCR_FATTR_BUF_SIZE;
-            env = getenv("UNIFYCR_ATTR_BUF_SIZE");
-            if (env) {
-            	unifycr_abtoull(env, &bytes);
-            	unifycr_fattr_buf_size = (size_t) bytes;
-            }
+            unifycr_param_get_abtoull("UNIFYCR_ATTR_BUF_SIZE", UNIFYCR_FATTR_BUF_SIZE, &bytes);
+            unifycr_fattr_buf_size = (size_t) bytes;
+
             unifycr_max_fattr_entries =\
             		unifycr_fattr_buf_size/sizeof(unifycr_fattr_t);
 
@@ -1794,25 +1827,15 @@ static int unifycr_init(int rank)
 
 
 #ifdef ENABLE_NUMA_POLICY
-        env = getenv("UNIFYCR_NUMA_POLICY");
-        if ( env ) {
-            sprintf(unifycr_numa_policy, env);
-            debug("NUMA policy used: %s\n", unifycr_numa_policy);
-        } else {
-            sprintf(unifycr_numa_policy, "default");
-        }
+        unifycr_param_get_str("UNIFYCR_NUMA_POLICY", "default", &env);
+        snprintf(unifycr_numa_policy, sizeof(unifycr_numa_policy), env);
 
-        env = getenv("UNIFYCR_USE_NUMA_BANK");
-        if (env) {
-            int val = atoi(env);
-            if (val >= 0) {
-                unifycr_numa_bank = val;
-            } else {
+        if (unifycr_param_get_int("UNIFYCR_USE_NUMA_BANK", -1, &unifycr_numa_bank) == 0) {
+            if (unifycr_numa_bank < 0) {
                 fprintf(stderr,"Incorrect NUMA bank specified in UNIFYCR_USE_NUMA_BANK."
-                                "Proceeding with default allocation policy!\n");
+                               "Proceeding with default allocation policy!\n");
             }
         }
-
 #endif
 
         /* record the max fd for the system */
@@ -1878,13 +1901,9 @@ static int unifycr_init(int rank)
         }
         char spillfile_prefix[100];
 
-        env = getenv("UNIFYCR_EXTERNAL_DATA_DIR");
-        if (env) {
-				strcpy(external_data_dir, env);
-        }
-		else
-				strcpy(external_data_dir, EXTERNAL_DATA_DIR);
-				
+        unifycr_param_get_str("UNIFYCR_EXTERNAL_DATA_DIR", EXTERNAL_DATA_DIR, &env);
+        snprintf(external_data_dir, sizeof(external_data_dir), "%s", env);
+
 		sprintf(spillfile_prefix,"%s/spill_%d_%d.log",\
 				external_data_dir, app_id, local_rank_idx);
 
@@ -1899,12 +1918,8 @@ static int unifycr_init(int rank)
             }
         }
 
-        env = getenv("UNIFYCR_EXTERNAL_META_DIR");
-        if (env) {
-				strcpy(external_meta_dir, env);
-        }
-		else
-				strcpy(external_meta_dir, EXTERNAL_META_DIR);
+        unifycr_param_get_str("UNIFYCR_EXTERNAL_META_DIR", EXTERNAL_META_DIR, &env);
+        snprintf(external_meta_dir, sizeof(external_meta_dir), "%s", env);
 
         /*ToDo: add the spillover feature for the index metadata*/
         sprintf(spillfile_prefix, "%s/spill_index_%d_%d.log",\
@@ -2027,12 +2042,9 @@ int unifycrfs_mount(const char prefix[], size_t size, int rank)
      * downside, can't attach to this in another srun (PRIVATE, that is) */
     //unifycr_mount_shmget_key = UNIFYCR_SUPERBLOCK_KEY + rank;
 
-    char * env = getenv("UNIFYCR_USE_SINGLE_SHM");
-    if (env) {
-        int val = atoi(env);
-        if (val != 0) {
-            unifycr_use_single_shm = 1;
-        }
+    unifycr_param_get_int("UNIFYCR_USE_SINGLE_SHM", unifycr_use_single_shm, &unifycr_use_single_shm);
+    if (unifycr_use_single_shm != 0) {
+        unifycr_use_single_shm = 1;
     }
 
     if (unifycr_use_single_shm) {
@@ -2283,10 +2295,7 @@ static int unifycr_sync_to_del() {
 static int unifycr_init_recv_shm(int local_rank_idx, int app_id) {
 	int rc = -1;
 
-    char *env = getenv("SHM_RECV_SIZE");
-	if (env) {
-		shm_recv_size = atol(env);
-	}
+    unifycr_param_get_long("SHM_RECV_SIZE", shm_recv_size, &shm_recv_size);
 
 	char shm_name[GEN_STR_LEN] = {0};
 	sprintf(shm_name, "%d-recv-%d", app_id, local_rank_idx);
@@ -2328,10 +2337,7 @@ static int unifycr_init_req_shm(int local_rank_idx, int app_id) {
 	int rc = -1;
 
 	/* initialize request buffer size*/
-	char *env = getenv("SHM_REQ_SIZE");
-	if (env) {
-		shm_req_size = atol(env);
-	}
+        unifycr_param_get_long("SHM_REQ_SIZE", shm_req_size, &shm_req_size);
 
 	char shm_name[GEN_STR_LEN] = {0};
 	sprintf(shm_name, "%d-req-%d", app_id, local_rank_idx);
