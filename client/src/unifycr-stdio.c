@@ -671,7 +671,7 @@ static int unifycr_stream_write(
         current = unifycr_fid_size(fid);
 
         /* like a seek, we discard push back bytes */
-        s->ubuflen;
+        s->ubuflen = 0;
     } else {
         /* otherwise, write at current file pointer */
         current = filedesc->pos;
