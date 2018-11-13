@@ -96,7 +96,7 @@ void *unifycr_shm_alloc(const char *name, size_t size)
  * caller should povider the address of a pointer to the region
  * in paddr, sets paddr to NULL on return,
  * returns UNIFYCR_SUCCESS on success */
-int unifycr_shm_free(const char* name, size_t size, void** paddr)
+int unifycr_shm_free(const char *name, size_t size, void **paddr)
 {
     /* check that we got an address (to something) */
     if (paddr == NULL) {
@@ -104,7 +104,7 @@ int unifycr_shm_free(const char* name, size_t size, void** paddr)
     }
 
     /* get address of shared memory region */
-    void* addr = *paddr;
+    void *addr = *paddr;
 
     /* if we have a pointer, try to munmap and unlink it */
     if (addr == NULL) {

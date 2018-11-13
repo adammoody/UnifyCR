@@ -119,14 +119,14 @@ static int attach_to_shm(app_config_t *app_config, int app_id, int client_side_i
 }
 
 /**
-* open spilled log file, spilled log file
-* is created once the client-side shared superblock
-* overflows.
-* @param app_config: application information
-* @param app_id: the server-side application id
-* @param sock_id: position in poll_set in unifycr_sock.h
-* @return success/error code
-*/
+ * open spilled log file, spilled log file
+ * is created once the client-side shared superblock
+ * overflows.
+ * @param app_config: application information
+ * @param app_id: the server-side application id
+ * @param sock_id: position in poll_set in unifycr_sock.h
+ * @return success/error code
+ */
 static int open_log_file(app_config_t *app_config,
                   int app_id, int client_side_id)
 {
@@ -250,7 +250,7 @@ static thrd_ctrl_t *unifycr_rm_thrd_create(int app_id, int client_id)
     thrd_ctrl->app_id    = app_id;
     thrd_ctrl->client_id = client_id;
 
-    /* intialize flow control flags */
+    /* initialize flow control flags */
     thrd_ctrl->exit_flag              = 0;
     thrd_ctrl->has_waiting_delegator  = 0;
     thrd_ctrl->has_waiting_dispatcher = 0;

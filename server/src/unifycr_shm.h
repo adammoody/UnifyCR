@@ -26,7 +26,7 @@ void *unifycr_shm_alloc(const char *name, size_t size);
  * caller should povider the address of a pointer to the region
  * in paddr, sets paddr to NULL on return,
  * returns UNIFYCR_SUCCESS on success */
-int unifycr_shm_free(const char *name, size_t size, void** paddr);
+int unifycr_shm_free(const char *name, size_t size, void **paddr);
 
 /* release a shared memory region mapping */
 

@@ -215,7 +215,7 @@ int rm_cmd_read(
                           thrd_ctrl->del_req_stat);
 
     /* wake up the request manager thread for the requesting client */
-    if (! thrd_ctrl->has_waiting_delegator) {
+    if (!thrd_ctrl->has_waiting_delegator) {
         /* delegator thread is not waiting, but we are in critical
          * section, we just added requests so we must wait for delegator
          * to signal us that it's reached the critical section before
@@ -249,7 +249,7 @@ int rm_cmd_read(
 * @param req_num: number of read requests
 * @return success/error code
 */
-int rm_cmd_mread(int app_id, int client_id, int gfid, int req_num, void* buffer)
+int rm_cmd_mread(int app_id, int client_id, int gfid, int req_num, void *buffer)
 {
     int rc;
 
@@ -423,7 +423,7 @@ int rm_cmd_exit(thrd_ctrl_t *thrd_ctrl)
 
     /* if delegator thread is not waiting in critical
      * section, let's wait on it to come back */
-    if (! thrd_ctrl->has_waiting_delegator) {
+    if (!thrd_ctrl->has_waiting_delegator) {
         /* delegator thread is not in critical section,
          * tell it we've got something and signal it */
         thrd_ctrl->has_waiting_dispatcher = 1;
@@ -545,7 +545,7 @@ static int rm_send_remote_requests(
         printf("request data transfer for client_id: %d, src_fid: %d, dest_offset %ld, src_offset %ld, length %ld\n", thrd_ctrl->del_req_set->msg_meta[msg_cursor].dest_client_id, thrd_ctrl->del_req_set->msg_meta[msg_cursor].src_fid, thrd_ctrl->del_req_set->msg_meta[msg_cursor].dest_offset, thrd_ctrl->del_req_set->msg_meta[msg_cursor].src_offset, thrd_ctrl->del_req_set->msg_meta[msg_cursor].length);
 
         /* get pointer to send buffer */
-        char* sendbuf = thrd_ctrl->del_req_msg_buf;
+        char *sendbuf = thrd_ctrl->del_req_msg_buf;
 
         /* pointer to start of requests for this delegator */
         send_msg_t *req = &(msgs[msg_cursor]);
@@ -825,7 +825,7 @@ static int rm_receive_remote_message(
                     if (irecv_flag[i] != 0) {
                         /* got a new message, get pointer
                          * to message buffer */
-                        char* buf = thrd_ctrl->del_recv_msg_buf[i];
+                        char *buf = thrd_ctrl->del_recv_msg_buf[i];
 
                         /* unpack the data into client shared memory */
                         int tmp_rc = rm_process_received_msg(
