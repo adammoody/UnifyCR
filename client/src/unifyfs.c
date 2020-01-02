@@ -1136,37 +1136,38 @@ int unifyfs_fid_truncate(int fid, off_t length)
     /* get meta data for this file */
     unifyfs_filemeta_t* meta = unifyfs_get_meta_from_fid(fid);
     if (meta->is_laminated) {
-        return EINVAL;  /* Can't truncate a laminated file */
+        /* Can't truncate a laminated file */
+        return (int)UNIFYFS_ERROR_IO;
     }
 
-    /* get current size of file */
-    off_t size = meta->local_size;
+    /* determine file storage type */
+    if (meta->storage == FILE_STORAGE_LOGIO) {
+        int gfid = unifyfs_gfid_from_fid(fid);
 
-    /* drop data if length is less than current size,
-     * allocate new space and zero fill it if bigger */
-    if (length < size) {
-        /* determine the number of chunks to leave after truncating */
-        int shrink_rc = unifyfs_fid_shrink(fid, length);
-        if (shrink_rc != UNIFYFS_SUCCESS) {
-            return shrink_rc;
+        unifyfs_file_attr_t gfattr;
+        int rc = unifyfs_get_global_file_meta(gfid, &gfattr);
+        if (rc == UNIFYFS_SUCCESS) {
+            off_t newsize = gfattr.size;
+            if (newsize <= length) {
+                /* update size in meta data to new value */
+                gfattr.size = length;
+                rc = unifyfs_set_global_file_meta(gfid, &gfattr);
+                if (rc != UNIFYFS_SUCCESS) {
+                    /* failed to update global meta data */
+                    return rc;
+                }
+            } else {
+                /* attempting to shrink file, not yet supported */
+                return (int)UNIFYFS_ERROR_IO;
+            }
+        } else {
+            /* failed to find meta data for file */
+            return (int)UNIFYFS_ERROR_EXIST;
         }
-    } else if (length > size) {
-        /* file size has been extended, allocate space */
-        int extend_rc = unifyfs_fid_extend(fid, length);
-        if (extend_rc != UNIFYFS_SUCCESS) {
-            return (int)UNIFYFS_ERROR_NOSPC;
-        }
-
-        /* write zero values to new bytes */
-        off_t gap_size = length - size;
-        int zero_rc = unifyfs_fid_write_zero(fid, size, gap_size);
-        if (zero_rc != UNIFYFS_SUCCESS) {
-            return (int)UNIFYFS_ERROR_IO;
-        }
+    } else {
+        /* unknown storage type */
+        return (int)UNIFYFS_ERROR_IO;
     }
-
-    /* set the new size */
-    meta->local_size = length;
 
     return UNIFYFS_SUCCESS;
 }

@@ -517,6 +517,28 @@ int rm_cmd_filesize(
         keyvals = NULL;
     }
 
+    /* get filesize as recorded in metadata, which may be bigger if
+     * user issued an ftruncate on the file to extend it past the
+     * last write */
+    size_t filesize_meta = filesize;
+
+    /* given the global file id, look up file attributes
+     * from key/value store */
+    unifyfs_file_attr_t fattr;
+    int ret = unifyfs_get_file_attribute(gfid, &fattr);
+    if (ret == UNIFYFS_SUCCESS) {
+        /* found file attribute for this file, now get its size */
+        filesize_meta = fattr.size;
+    } else {
+        /* failed to find file attributes for this file */
+        return UNIFYFS_FAILURE;
+    }
+
+    /* take maximum of last write and file size from metadata */
+    if (filesize_meta > filesize) {
+        filesize = filesize_meta;
+    }
+
     *outsize = filesize;
     return rc;
 }
