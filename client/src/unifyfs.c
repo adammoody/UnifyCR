@@ -1137,32 +1137,16 @@ int unifyfs_fid_truncate(int fid, off_t length)
     unifyfs_filemeta_t* meta = unifyfs_get_meta_from_fid(fid);
     if (meta->is_laminated) {
         /* Can't truncate a laminated file */
-        return (int)UNIFYFS_ERROR_IO;
+        return (int)UNIFYFS_ERROR_INVAL;
     }
 
     /* determine file storage type */
     if (meta->storage == FILE_STORAGE_LOGIO) {
+        /* invoke truncate rpc */
         int gfid = unifyfs_gfid_from_fid(fid);
-
-        unifyfs_file_attr_t gfattr;
-        int rc = unifyfs_get_global_file_meta(gfid, &gfattr);
-        if (rc == UNIFYFS_SUCCESS) {
-            off_t newsize = gfattr.size;
-            if (newsize <= length) {
-                /* update size in meta data to new value */
-                gfattr.size = length;
-                rc = unifyfs_set_global_file_meta(gfid, &gfattr);
-                if (rc != UNIFYFS_SUCCESS) {
-                    /* failed to update global meta data */
-                    return rc;
-                }
-            } else {
-                /* attempting to shrink file, not yet supported */
-                return (int)UNIFYFS_ERROR_IO;
-            }
-        } else {
-            /* failed to find meta data for file */
-            return (int)UNIFYFS_ERROR_EXIST;
+        int rc = invoke_client_truncate_rpc(gfid, length);
+        if (rc != UNIFYFS_SUCCESS) {
+            return rc;
         }
     } else {
         /* unknown storage type */
